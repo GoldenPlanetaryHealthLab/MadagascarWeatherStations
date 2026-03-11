@@ -1,6 +1,6 @@
 Package: MadagascarWeatherStations
 Title: Madagascar Weather Stations
-Version: 0.0.0.9000
+Version: 0.0.0.9001
 Authors@R: 
     person(c("Tinashe", "Michael"), "Tapera", , "ttapera@hsph.harvard.edu", role = c("aut", "cre"))
 Description: A data pipeline and distribution package for our Madagascar
