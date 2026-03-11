@@ -1,5 +1,5 @@
 ---
-title: "flat_build_targets_pipeline.Rmd empty"
+title: "flat_build_local_pipeline.Rmd empty"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -49,7 +49,7 @@ and reporting into distinct workspaces:
   any data product shared here by running the `targets` pipeline from raw data, and then rerunning
   your own analysis code.
 
-# build_targets_pipeline
+# build_local_pipeline
 
 This is a convenience function that can build the targets pipeline for the user
 in their local project. It does this by providing skeleton code for the targets file,
@@ -61,11 +61,11 @@ library(glue)
 library(readr)
 ```
 
-```{r development-build_targets_pipeline}
+```{r development-build_local_pipeline}
 # Prepare the code of your function here
 ```
 
-```{r function-build_targets_pipeline}
+```{r function-build_local_pipeline}
 #' Build Targets Pipeline
 #'
 #' Dynamically build the targets pipeline for the project.
@@ -77,7 +77,7 @@ library(readr)
 #' @importFrom here here
 #' @return 1
 #' @export
-build_targets_pipeline <- function(
+build_local_pipeline <- function(
   targets_notebook_name = "_target_notebook.Rmd", 
   targets_file_name = "_targets.R", 
   pkg_name = "MadagascarWeatherStations", 
@@ -90,10 +90,10 @@ build_targets_pipeline <- function(
   targets_file <- here::here(targets_file_name)
 
   # fetch this installed vignette
-  v <- vignette(vignette_name, package = pkg_name)
-  vignette_path <- fs::path(v$Dir, "doc", v$File)
+  # v <- vignette(vignette_name, package = pkg_name)
+  # vignette_path <- fs::path(v$Dir, "doc", v$File)
 
-  # vignette_path <- system.file(vignette_name, package = pkg_name)
+  vignette_path <- system.file(vignette_name, package = pkg_name)
 
   # assert that the vignette exists
   if (!fs::file_exists(vignette_path)) {
@@ -135,32 +135,19 @@ build_targets_pipeline <- function(
 }
 ```
 
-```{r examples-build_targets_pipeline}
-#build_targets_pipeline()
+```{r examples-build_local_pipeline}
+#build_local_pipeline()
 ```
 
-```{r tests-build_targets_pipeline}
-test_that("build_targets_pipeline works", {
-  expect_true(inherits(build_targets_pipeline, "function"))
+```{r tests-build_local_pipeline}
+test_that("build_local_pipeline works", {
+  expect_true(inherits(build_local_pipeline, "function"))
 })
 ```
 
 # Pipeline Definition
 
 Below we define the actual targets of the pipeline using `tar_tangle()`.
-
-```{r, eval=FALSE}
-#| memory: persistent
-#| packages: [dplyr, readr]
-
-data <- mtcars |>
-  filter(mpg < 30)
-```
-
-```{r, eval=FALSE}
-#| cue: tar_cue(mode = "never")
-model <- lm(mpg ~ wt + hp, data = data)
-```
 
 ## Config
 
@@ -181,7 +168,8 @@ to your local "data/" directory. If successful, stores the full list of files in
 
 ```{r, eval=FALSE}
 #| error: stop
-raw_data <- link_inputs(cfg_path = cfg)
+#| format: file
+raw_data_dir <- link_inputs(cfg_path = cfg)
 ```
 
 ## Track Inputs
@@ -192,26 +180,70 @@ to FASRC, which will trigger this pipeline to rerun:
 
 ```{r, eval=FALSE}
 #| format: file
-#| pattern: map(raw_data)
-raw_data_files <- raw_data
+raw_data_files <- list.files(raw_data_dir, recursive=T, full.names=T)
 ```
 
-## Merge Data
+## Merge Indoor Data
 
-We use our `clean_and_merge()` function to read in the raw data files, clean them, and merge them into a single dataset. This is the first step of our data processing pipeline, and it ensures that all raw data files are standardized and combined for further analysis.
+We use our `clean_and_merge_indoor()` function to read in the raw data files, clean them, and merge them into a single dataset. This is the first step of our data processing pipeline, and it ensures that all raw data files are standardized and combined for further analysis.
+
+```{r}, eval=FALSE
+#| packages: [dplyr, stringr]
+#| format: file
+indoor_files <- raw_data_files %>% 
+  str_subset("Logger_Intake")
+```
 
 ```{r, eval=FALSE}
 #| packages: [dplyr, readxl, purrr, janitor, lubridate, tidyr]
-#| pattern: map(raw_data_files)
-clean_data <- clean_and_merge_indoor(raw_data_files)
+indoor_sensor_database <- map(indoor_files, clean_and_merge_indoor) %>%
+  bind_rows()
+```
+
+## Fetch Weather Station Data
+
+Our next task is to fetch the weather station data for our devices.
+We use the `fetch_updated_data()` function to retrieve the latest data
+from our weather stations via the Ambient Weather API. This function 
+is designed to fetch data for each device and return it in a 
+standardized format for visualization and distribution for analysis.
+
+```{r, eval=FALSE}
+#| packages: [ambientweatheR, purrr, dplyr, httr2]
+devices <- paste0(
+  "https://api.ambientweather.net/v1/devices?applicationKey=", 
+  get_or_set_application_key(),
+  "&apiKey=", get_or_set_api_key()
+  ) %>%
+  request() %>%
+  req_perform() %>%
+  resp_body_json() %>%
+  map(flatten) %>% 
+  map_chr(pluck, "macAddress")
+```
+
+```{r, eval=FALSE}
+#| packages: [ambientweatheR, purrr, dplyr, httr2, cli, fs, nanoparquet]
+# fetch all data from all devices, starting from the most recent date in the existing database
+weather_data_update <- map_dfr(devices, ~ fetch_updated_data(device_id = .x, lookback = -1))
+```
+
+Next, we save that data out by using our `dump_to_disk()` function, which saves the data to a specified directory in a standardized [parquet](https://nanoparquet.r-lib.org/index.html) format. 
+This ensures that the fetched weather station data is stored in an organized manner for future analysis and reference.
+```{r}, eval=FALSE
+#| packages: [here, dplyr, purrr, nanoparquet, arrow, fs, glue]
+#| format: file
+ambient_weather_station_database <- dump_to_disk(weather_data_update)
 ```
 
 ```{r development-inflate, eval=FALSE}
 # Run but keep eval=FALSE to avoid infinite loop
 # Execute in the console directly
-fusen::inflate(flat_file = "dev/flat_build_targets_pipeline.Rmd", vignette_name = "Pipeline Definition", check=FALSE, open=FALSE, clean=TRUE)
+fusen::inflate(flat_file = "dev/flat_build_local_pipeline.Rmd", vignette_name = "Pipeline Definition", check=FALSE, open=FALSE, clean=TRUE)
+```
 
+```{r development-copy, eval=FALSE}
 # Also copy the pipeline-definition.Rmd to inst/
-# fs::file_copy("vignettes/pipeline-definition.Rmd", "inst/pipeline-definition.Rmd", overwrite = TRUE)
+fs::file_copy("vignettes/pipeline-definition.Rmd", "inst/pipeline-definition.Rmd", overwrite = TRUE)
 ```
 

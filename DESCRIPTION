@@ -7,24 +7,35 @@ Description: A data pipeline and distribution package for our Madagascar
     weather stations data.
 License: MIT + file LICENSE
 Imports: 
+    arrow,
     cli,
     config,
+    dplyr,
     fs,
     glue,
     here,
+    janitor,
+    lubridate,
     magrittr,
+    purrr,
     readr,
+    readxl,
     stats,
     stringr,
     targets,
+    tidyr,
     xfun
 Suggests: 
+    ambientweatheR,
+    ggplot2,
     knitr,
+    plotly,
     rmarkdown,
+    skimr,
     testthat
 VignetteBuilder: 
     knitr
 Config/fusen/version: 0.7.2
 Encoding: UTF-8
-Roxygen: list(markdown = TRUE)
+Roxygen: list(markdown = TRUE, roclets = c("rd", "collate", "namespace"))
 RoxygenNote: 7.3.3

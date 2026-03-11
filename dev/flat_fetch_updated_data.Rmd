@@ -1,0 +1,235 @@
+---
+title: "flat_fetch_updated_data.Rmd empty"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r development, include=FALSE}
+library(testthat)
+```
+
+```{r development-load}
+# Load already included functions if relevant
+pkgload::load_all(export_all = FALSE)
+```
+
+# fetch_updated_data
+
+Thanks to the `ambientweatheR` package,
+we can access all of the weather data from our devices
+in a standardized format. This makes use of the Ambient Weather API,
+which we demonstrate below. Remember to set your API
+key in the `.Renviron` file!
+
+```{r}
+#devtools::install_github("andrewflack/ambientweatheR")
+library(ambientweatheR)
+library(purrr)
+library(dplyr)
+```
+
+First, we list our devices:
+
+```{r}
+list_user_devices() %>%
+  flatten() %>%
+  pluck("macAddress") -> device_id
+```
+
+Then fetch the data for the device:
+
+```{r}
+fetch_device_data(device_id) %>%
+  pluck("content")
+```
+
+Easy peasy!
+
+We define a function that fetches device data for an individual device:
+
+```{r development-fetch_updated_data}
+# Prepare the code of your function here
+```
+
+```{r function-fetch_updated_data}
+
+#' Fetch Updated Ambient Weather Data
+#'
+#' Fetches device data from Ambient Weather for a date range. If `lookback` is
+#' positive, data are fetched from `today - lookback` through today. Otherwise,
+#' the function looks for the most recent date in `existing_db_path` and fetches
+#' from that day forward (overwriting that day if it already exists).
+#'
+#' @param device_id Character scalar. Ambient Weather device ID.
+#' @param lookback Numeric scalar. Number of days to look back from today.
+#'   Use a positive value to fetch recent data; the default `-1` triggers
+#'   fetching from the most recent date found in `existing_db_path`.
+#' @param existing_db_path Character scalar. Path to existing parquet data
+#'   (default: `here::here("data/ambient_processed")`).
+#' @param api_key Character scalar. Ambient Weather API key. Defaults to
+#'   `Sys.getenv("AMBIENT_WEATHER_API_KEY")`.
+#'
+#' @return A tibble with device data, sorted by `date_time`, with `device_id`
+#'   appended as a column.
+#'
+#' @importFrom ambientweatheR fetch_device_data
+#' @importFrom purrr pluck map_chr map_df
+#' @importFrom dplyr as_tibble mutate arrange
+#' @importFrom cli cli_alert_info cli_alert_danger cli_alert_success
+#' @importFrom here here
+#' @importFrom fs dir_exists
+#' @importFrom arrow read_parquet
+#'
+#' @examples
+#' \dontrun{
+#' fetch_updated_data("C4:D8:D5:3B:4C:F9", lookback = 7)
+#' }
+#'
+#' @export
+fetch_updated_data <- function(api_key = Sys.getenv("AMBIENT_WEATHER_API_KEY"), device_id, lookback = -1, existing_db_path = here::here("data/ambient_processed")) {
+
+  today <- Sys.Date()
+  if (lookback > 1){
+    # in this case, we want to fetch data starting from n days ago until today
+    cli_alert_info("Fetching data from the last {lookback} days...")
+    start_date <- as.POSIXct(today - lookback)
+  
+  } else {
+    # in this case, we want to check the database for the most recent date we have data
+    # for, and start fetching from there
+    
+    cli_alert_info("Checking most recent date in the database...")
+    start_date <- as.POSIXct(today)
+    
+    if (dir_exists(existing_db_path)) {
+      existing_data <- list.files(existing_db_path, recursive = TRUE, full.names = TRUE, pattern = "\\.parquet$") %>%
+        map_dfr(read_parquet)
+      
+      if (nrow(existing_data) > 0) {
+        most_recent_date <- max(existing_data$date_time)
+        # floor to that day, so it automatically overwrites that day and fetches all data from that day onward
+        start_date <- as.Date(most_recent_date)
+        cli_alert_info("Most recent date in the database is {most_recent_date}. Fetching data starting from {start_date}...")
+      } else {
+        cli_alert_danger("No existing data found in the database.")
+        stop("No existing data found in the database. Please provide a valid path to the existing database or set lookback to a positive number.")
+      }
+    } else {
+      cli_alert_danger("No existing database found.")
+      stop("No existing database found. Please provide a valid path to the existing database or set lookback to a positive number.")
+    }
+  }
+
+  cli_alert_info("Fetching data starting from {start_date}...")
+  seq.Date(from = as.Date(start_date), to = Sys.Date(), by = "days") %>%
+    map_chr(as.character) %>%
+    map_df(
+      ~ fetch_device_data(device_id, .x) %>% 
+        pluck("content") %>% 
+        as_tibble()
+      ) %>%
+    mutate(device_id = device_id) %>%
+    arrange(date_time) -> output_df
+  
+  cli_alert_success("Data fetching complete for device {device_id}. Retrieved {nrow(output_df)} records.")
+  return(output_df)
+}
+```
+
+```{r tests-fetch_updated_data}
+test_that("fetch_updated_data works", {
+  expect_true(inherits(fetch_updated_data, "function"))
+})
+```
+
+# dump_to_disk
+
+Once we have the data, we can dump it to disk:
+    
+```{r development-dump_to_disk}
+# You can prepare the code of the dump_to_disk() function here
+```
+  
+```{r function-dump_to_disk}
+#' Dump Ambient Weather Data to Partitioned Parquet Files
+#'
+#' Partitions a data frame by date and device, creates a year/month/day folder
+#' hierarchy under `output_path`, and writes one parquet file per
+#' `year/month/day/device_id` group. Returns a character vector of all file
+#' paths under the output directory.
+#'
+#' @param df A data frame or tibble containing a datetime column and `device_id`.
+#' @param proj_root Character scalar. Project root used to build output paths.
+#'   Defaults to `here::here()`.
+#' @param output_path Character scalar. Relative path under `proj_root` where
+#'   data are written (default: `"data/ambient_processed"`).
+#' @param dt_col Bare column name for the datetime column used to derive
+#'   `year`, `month`, and `day`. Defaults to `date_time`.
+#'
+#' @return Character vector of full file paths written under `output_path`.
+#'
+#' @importFrom dplyr mutate distinct group_by group_walk select
+#' @importFrom purrr pwalk
+#' @importFrom fs dir_create
+#' @importFrom here here
+#' @importFrom arrow write_parquet
+#' @importFrom glue glue
+#' @importFrom fs path
+#'
+#' @examples
+#' \dontrun{
+#' dump_to_disk(ambient_df, dt_col = date_time)
+#' }
+#'
+#' @export
+dump_to_disk <- function(
+  df,
+  proj_root = here::here(),
+  output_path = "data/ambient_processed",
+  dt_col = date_time
+) {
+
+  df <- df %>%
+    mutate(
+      dt = as.Date({{dt_col}}),
+      year  = format(dt, "%Y"),
+      month = format(dt, "%m"),
+      day   = format(dt, "%d")
+    )
+
+  df %>%
+    distinct(year, month, day) %>%
+    pwalk(function(year, month, day) {
+      dir_create(path(proj_root, output_path, year, month, day))
+    })
+
+  df %>%
+    group_by(year, month, day, device_id) %>%
+    group_walk(function(.x, .y) {
+
+      .x %>%
+        select(-dt) %>%
+        write_parquet(
+          .,
+          path(proj_root, output_path, .y$year, .y$month, .y$day, glue("{.y$device_id}_ambient_data_{.y$year}{.y$month}{.y$day}.parquet"))
+        )
+    })
+
+  return(list.files(path(proj_root, output_path), recursive = TRUE, full.names = TRUE))
+}
+```
+
+```{r tests-dump_to_disk}
+test_that("dump_to_disk works", {
+  expect_true(inherits(dump_to_disk, "function")) 
+})
+```
+  
+
+```{r development-inflate, eval=FALSE}
+# Run but keep eval=FALSE to avoid infinite loop
+# Execute in the console directly
+fusen::inflate(flat_file = "dev/flat_fetch_updated_data.Rmd", vignette_name = "Fetching Data from Ambient Weather API", check=FALSE, open=FALSE, clean=TRUE)
+```
+

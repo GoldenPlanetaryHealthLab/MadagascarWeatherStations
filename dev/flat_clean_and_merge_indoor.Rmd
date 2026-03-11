@@ -1,0 +1,176 @@
+---
+title: "flat_clean_and_merge_indoor.Rmd empty"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r development, include=FALSE}
+library(testthat)
+```
+
+```{r development-load}
+# Load already included functions if relevant
+pkgload::load_all(export_all = FALSE)
+```
+
+This notebook develops a simple function that is the main data processing function in the pipeline for indoor
+data. It takes raw data from the "data/" directory, cleans it, and merges it into a single dataset 
+that can be used for analysis and visualization.
+
+First, we must check that all of the files we receive are uniform and consistent.
+
+
+```{r}
+library(targets)
+library(dplyr)
+library(readxl)
+library(stringr)
+library(janitor)
+library(lubridate)
+library(here)
+```
+
+Reading in the data from the targets pipeline:
+
+```{r}
+raw_data_files <- tar_read(raw_data_files, store = here("_targets"))
+
+raw_data_files
+```
+
+We can test out reading in one of these files:
+
+```{r}
+dat <- read_xlsx(raw_data_files[[1]])
+dat
+```
+
+This looks great so far. We can skip the first column
+and clean up the column names:
+
+```{r}
+dat <- read_xlsx(raw_data_files[[1]]) %>%
+  clean_names() %>%
+  select(-1)
+
+dat
+```
+
+Date is in EAT time zone, so we should
+create a local date column and a GMT column:
+
+```{r}
+eat <- "Indian/Antananarivo"
+
+dat <- read_xlsx(raw_data_files[[1]]) %>%
+  clean_names() %>%
+  select(-1) %>%
+  rename(local_date = date_time_eat) %>%
+  mutate(local_date = with_tz(local_date, tzone = eat),
+         gmt_date = with_tz(local_date, tzone = "GMT"))
+
+dat
+```
+
+I don't like the RH, so we rename manually to relative humidity:
+
+```{r}
+dat <- dat %>%
+  rename(rel_humidity_percent = rh_percent)
+dat
+```
+
+There are other sheets to explore:
+
+```{r}
+sheets <- excel_sheets(raw_data_files[[1]])
+
+all_dat <- lapply(sheets, function(x) {
+  print(x)
+  read_xlsx(raw_data_files[[1]], sheet = x)
+})
+```
+
+We have an events and details sheet,
+but it looks like the data itself is in the Data sheet.
+
+We can use the events sheet to check on the metadata,
+such as the device on and off times in case of any weird  data:
+
+```{r}
+all_dat[[2]]
+```
+
+The details sheet just tells us about the device itself,
+which may come in handy if we have to do some extra
+checks:
+
+```{r}
+all_dat[[3]]
+```
+
+Note that this also tells us the logging frequency (every 5 minutes)
+and different settings of the device itself. Not particularly useful
+at the moment, but good to know.
+
+# clean_and_merge_indoor
+
+```{r development-clean_and_merge_indoor}
+# Prepare the code of your function here
+```
+
+```{r function-clean_and_merge_indoor}
+#' clean_and_merge_indoor Title
+#'
+#' @importFrom readxl read_xlsx
+#' @importFrom janitor clean_names
+#' @importFrom dplyr rename select mutate full_join arrange
+#' @importFrom tidyr fill
+#' @importFrom purrr map_dfr
+#' @importFrom lubridate with_tz
+#' @return tibble
+#' @export
+#'
+#' @examples
+clean_and_merge_indoor <- function(raw_data_file, sh_name = "Data", eat = "Indian/Antananarivo") {
+
+  data <- raw_data_file %>%
+    read_xlsx(sheet = sh_name) %>%
+    clean_names() %>%
+    select(-1) %>%
+    rename(local_date = date_time_eat) %>%
+    mutate(local_date = with_tz(local_date, tzone = eat),
+          gmt_date = with_tz(local_date, tzone = "GMT")) %>%
+    rename(rel_humidity_percent = rh_percent)
+  
+  logger_events <- raw_data_file %>%
+    read_xlsx(sheet = "Events") %>%
+    clean_names() %>%
+    rename(local_date = date_time_eat, logging_period = number) %>%
+    mutate(local_date = with_tz(local_date, tzone = eat))
+
+  #expand the events to match the full date range of data
+
+  data_clean <- logger_events %>%
+    full_join(data) %>%
+    arrange(local_date) %>%
+    fill(logging_period, .direction = "down")
+
+  data_clean
+}
+```
+
+```{r tests-clean_and_merge_indoor}
+test_that("clean_and_merge_indoor works", {
+  expect_true(inherits(clean_and_merge_indoor, "function"))
+})
+```
+
+
+```{r development-inflate, eval=FALSE}
+# Run but keep eval=FALSE to avoid infinite loop
+# Execute in the console directly
+fusen::inflate(flat_file = "dev/flat_clean_and_merge_indoor.Rmd", vignette_name = "Clean and Merge Indoor Data", check=FALSE, open=FALSE, clean=TRUE)
+```
+

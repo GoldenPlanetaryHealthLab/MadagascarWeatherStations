@@ -26,7 +26,7 @@ library(MadagascarWeatherStations)
 # link_inputs
 
 Here we're defining a simple function that symlinks the input data to 
-the local data directory. This make sit easy to work with data stored
+the local data directory. This makes it easy to work with data stored
 on the google drive, copied to FASRC.
 
 

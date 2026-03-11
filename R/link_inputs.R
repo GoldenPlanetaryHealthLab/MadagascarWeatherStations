@@ -42,8 +42,5 @@ link_inputs <- function(cfg_path) {
     stop("Linking failed!")
   }  
 
-  # return the full file tree of the linked data directory with full paths
-  files <- list.files(local_data_dir, recursive = TRUE, full.names = TRUE, include.dirs = TRUE)
-
-  files
+  local_data_dir
 }

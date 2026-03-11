@@ -1,6 +1,21 @@
+flat_build_local_pipeline.Rmd:
+  path: dev/flat_build_local_pipeline.Rmd
+  state: active
+  R: R/build_local_pipeline.R
+  tests: tests/testthat/test-build_local_pipeline.R
+  vignettes: vignettes/pipeline-definition.Rmd
+  inflate:
+    flat_file: dev/flat_build_local_pipeline.Rmd
+    vignette_name: Pipeline Definition
+    open_vignette: false
+    check: false
+    document: true
+    overwrite: ask
+    clean: true
+    codecov: false
 flat_build_targets_pipeline.Rmd:
   path: dev/flat_build_targets_pipeline.Rmd
-  state: active
+  state: deprecated
   R: R/build_targets_pipeline.R
   tests: tests/testthat/test-build_targets_pipeline.R
   vignettes: vignettes/pipeline-definition.Rmd
@@ -13,9 +28,58 @@ flat_build_targets_pipeline.Rmd:
     overwrite: ask
     clean: true
     codecov: false
+flat_clean_and_merge.Rmd:
+  path: dev/flat_clean_and_merge.Rmd
+  state: active
+  R: R/clean_and_merge.R
+  tests: tests/testthat/test-clean_and_merge.R
+  vignettes: vignettes/clean-and-merge.Rmd
+  inflate:
+    flat_file: dev/flat_clean_and_merge.Rmd
+    vignette_name: Clean and Merge
+    open_vignette: false
+    check: false
+    document: true
+    overwrite: ask
+    clean: true
+    codecov: false
+flat_clean_and_merge_indoor.Rmd:
+  path: dev/flat_clean_and_merge_indoor.Rmd
+  state: active
+  R: R/clean_and_merge_indoor.R
+  tests: tests/testthat/test-clean_and_merge_indoor.R
+  vignettes: vignettes/clean-and-merge-indoor-data.Rmd
+  inflate:
+    flat_file: dev/flat_clean_and_merge_indoor.Rmd
+    vignette_name: Clean and Merge Indoor Data
+    open_vignette: false
+    check: false
+    document: true
+    overwrite: ask
+    clean: true
+    codecov: false
+flat_fetch_updated_data.Rmd:
+  path: dev/flat_fetch_updated_data.Rmd
+  state: active
+  R:
+  - R/fetch_updated_data.R
+  - R/dump_to_disk.R
+  tests:
+  - tests/testthat/test-fetch_updated_data.R
+  - tests/testthat/test-dump_to_disk.R
+  vignettes: vignettes/fetching-data-from-ambient-weather-api.Rmd
+  inflate:
+    flat_file: dev/flat_fetch_updated_data.Rmd
+    vignette_name: Fetching Data from Ambient Weather API
+    open_vignette: false
+    check: false
+    document: true
+    overwrite: ask
+    clean: true
+    codecov: false
 flat_full.Rmd:
   path: dev/flat_full.Rmd
-  state: active
+  state: deprecated
   R:
   - R/my_median.R
   - R/my_other_median.R

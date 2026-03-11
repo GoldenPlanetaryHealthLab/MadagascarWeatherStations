@@ -10,7 +10,7 @@ library(MadagascarWeatherStations) # Load your package that contains functions f
 
 # Set target options:
 tar_option_set(
-  packages = c("MadagascarWeatherStations") # Packages that your targets need for their tasks.
+  packages = c("MadagascarWeatherStations", "purrr") # Packages that your targets need for their tasks.
   # format = "qs", # Optionally set the default storage format. qs is fast.
   #
   # Pipelines that take a long time to run may benefit from

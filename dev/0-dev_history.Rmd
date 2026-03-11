@@ -140,7 +140,8 @@ install.packages(c(
   "jsonlite", # JSON support
   "remotes", # VSCode R tools
   "config", # for fusen config mgmt
-  "parsermd"
+  "parsermd",
+  "visNetwork"
 ))
 
 remotes::install_github("nx10/httpgd") #
