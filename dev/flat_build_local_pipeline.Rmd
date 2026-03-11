@@ -59,6 +59,10 @@ to targets objects via `tarchetypes::tar_tangle()`
 ```{r development-libraries}
 library(glue)
 library(readr)
+library(stringr)
+library(dplyr)
+library(fs)
+library(here)
 ```
 
 ```{r development-build_local_pipeline}
@@ -187,7 +191,7 @@ raw_data_files <- list.files(raw_data_dir, recursive=T, full.names=T)
 
 We use our `clean_and_merge_indoor()` function to read in the raw data files, clean them, and merge them into a single dataset. This is the first step of our data processing pipeline, and it ensures that all raw data files are standardized and combined for further analysis.
 
-```{r}, eval=FALSE
+```{r, eval=FALSE}
 #| packages: [dplyr, stringr]
 #| format: file
 indoor_files <- raw_data_files %>% 
@@ -237,7 +241,7 @@ deleted by `targets`'s internal garbage collection. By writing to disk directly,
 ensure that the raw fetched data is preserved and can be accessed independently of the pipeline's
  internal management. This also allows us to maintain a historical record of the fetched data.
 
-```{r}, eval=FALSE
+```{r, eval=FALSE}
 #| packages: [here, dplyr, purrr, nanoparquet, arrow, fs, glue]
 #| format: file
 ambient_weather_station_database <- dump_to_disk(weather_data_update)

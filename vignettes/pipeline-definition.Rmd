@@ -119,17 +119,13 @@ raw_data_files <- list.files(raw_data_dir, recursive=T, full.names=T)
 ## Merge Indoor Data
 
 We use our `clean_and_merge_indoor()` function to read in the raw data files, clean them, and merge them into a single dataset. This is the first step of our data processing pipeline, and it ensures that all raw data files are standardized and combined for further analysis.
-```{r}
-#| packages:
-#| - dplyr
-#| - stringr
-#| format: file
 
+```{r}, eval=FALSE
+#| packages: [dplyr, stringr]
+#| format: file
 indoor_files <- raw_data_files %>% 
   str_subset("Logger_Intake")
 ```
-
-
 ```{r}
 #| eval: no
 #| packages:
@@ -153,6 +149,7 @@ from our weather stations via the Ambient Weather API. This function
 is designed to fetch data for each device and return it in a 
 standardized format for visualization and distribution for analysis.
 ```{r}
+#| eval: no
 #| packages:
 #| - ambientweatheR
 #| - purrr
@@ -173,6 +170,7 @@ devices <- paste0(
 
 
 ```{r}
+#| eval: no
 #| packages:
 #| - ambientweatheR
 #| - purrr
@@ -189,20 +187,21 @@ weather_data_update <- map_dfr(devices, ~ fetch_updated_data(device_id = .x, loo
 
 Next, we save that data out by using our `dump_to_disk()` function, which saves the data to a specified directory in a standardized [parquet](https://nanoparquet.r-lib.org/index.html) format. 
 This ensures that the fetched weather station data is stored in an organized manner for future analysis and reference.
-```{r}
-#| packages:
-#| - here
-#| - dplyr
-#| - purrr
-#| - nanoparquet
-#| - arrow
-#| - fs
-#| - glue
-#| format: file
 
+> Note: this may appear as an antipattern because `targets` automatically tracks files,
+and can do so in parquet, however, we want to have persistent outputs that cannot be accidentally
+deleted by `targets`'s internal garbage collection. By writing to disk directly, we 
+ensure that the raw fetched data is preserved and can be accessed independently of the pipeline's
+ internal management. This also allows us to maintain a historical record of the fetched data.
+
+```{r}, eval=FALSE
+#| packages: [here, dplyr, purrr, nanoparquet, arrow, fs, glue]
+#| format: file
 ambient_weather_station_database <- dump_to_disk(weather_data_update)
 ```
 
-
+From here, we allow the `maestro` package to take over scheduling
+the pipeline run. `maestro` will manually invalidate the database
+file hash, which will trigger the pipeline to rerun and process new data.
 
 

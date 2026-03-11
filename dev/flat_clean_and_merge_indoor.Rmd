@@ -34,7 +34,8 @@ library(here)
 Reading in the data from the targets pipeline:
 
 ```{r}
-raw_data_files <- tar_read(raw_data_files, store = here("_targets"))
+raw_data_files <- tar_read(raw_data_files, store = here("_targets")) %>%
+  str_subset("Logger")
 
 raw_data_files
 ```
@@ -132,7 +133,6 @@ at the moment, but good to know.
 #' @return tibble
 #' @export
 #'
-#' @examples
 clean_and_merge_indoor <- function(raw_data_file, sh_name = "Data", eat = "Indian/Antananarivo") {
 
   data <- raw_data_file %>%

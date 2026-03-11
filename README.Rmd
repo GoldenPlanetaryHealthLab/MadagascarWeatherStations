@@ -18,37 +18,86 @@ knitr::opts_chunk$set(
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of MadagascarWeatherStations is to ...
+The MadagascarWeatherStations package provides tools for
+fetching, processing, and analyzing weather data in the South West of Madagascar.
+This includes the following data sources:
+
+1. Ambient Weather Sensors, whose data is collected via the Ambient Weather API,
+2. Indoor Sensors, whose data is collected via manual downloads from the HOBO app, and
+3. AirQO Sensors, whose data is collected via the AirQO API (TBD)
+
+It includes functions for retrieving data from the sources, cleaning and merging datasets,
+and storing the processed data in a standardized format for further analysis.
 
 ## Installation
 
 You can install the development version of MadagascarWeatherStations like so:
 
 ``` r
-# FILL THIS IN! HOW CAN PEOPLE INSTALL YOUR DEV PACKAGE?
+# install.packages("devtools")
+devtools::install_github("GoldenPlanetaryHealthLab/MadagascarWeatherStations")
 ```
 
-## Example
+## Pipeline Implementation
 
-This is a basic example which shows you how to solve a common problem:
+The pipeline is implemented in two main functionalities:
 
-```{r example}
+1. `targets` pipeline: This is the core of the data processing
+ workflow, which defines a series of targets that represent different stages
+ of the data processing. Each target is responsible for a specific task, 
+ such as fetching data, cleaning it, or saving it to disk. The `targets` 
+ package manages the dependencies between these targets (as a DAG) and 
+ ensures that they are executed in the correct order.
+
+2. `maestro` scheduling: This is responsible for scheduling the
+ execution of the `targets` pipeline. While `targets` is defined
+ for static pipelines, `maestro` allows us to specify how
+  often we want the pipeline to update local data (e.g., every hour, daily, etc.) 
+  and handles the execution of the pipeline according to that schedule.
+
+See vignette("pipeline-definition") for more details on how the pipeline is defined and implemented.
+
+## Accessing the Data
+
+Once you've installed the package, you must first run
+the `targets` pipeline to fetch and process it locally to your
+project. To do this, you must first access an API key for the
+Ambient Weather API, and set it in your `.Renviron` file. 
+See [here](https://github.com/andrewflack/ambientweatheR)[^1] for more information on that. Then, you can run the pipeline
+by executing `tar_make()` in the R console. This will execute all defined
+targets, processing the data and generating clean datasets.
+
+[^1]: Note: the `ambientweatheR` package is a 
+dependency of this package, but I found a bug in
+it that I fixed in [this pull request](https://github.com/andrewflack/ambientweatheR/pull/3).
+
+Once the `targets` pipeline has run, access the datasets by:
+
+```{r}
 library(MadagascarWeatherStations)
-## basic example code
+library(dplyr) # for pipe and glimpse()
+library(targets)
+
+# Load the indoor data
+indoor_data <- tar_read(indoor_sensor_database)
+
+# Load the ambient weather station data
+# note that these are parquet files, not data frames;
+# we store them this way to avoid duplicating data in memory
+# and to allow for more efficient storage and retrieval of large datasets
+ambient_data <- tar_read(ambient_weather_station_database) %>%
+  purrr::map(nanoparquet::read_parquet) %>%
+  purrr::list_rbind()
+
+# Load the AirQO data (TBD)
 ```
 
-What is special about using `README.Rmd` instead of just `README.md`? You can include R chunks like so:
-
-```{r cars}
-summary(cars)
+```{r}
+glimpse(indoor_data)
 ```
 
-You'll still need to render `README.Rmd` regularly, to keep `README.md` up-to-date. `devtools::build_readme()` is handy for this.
-
-You can also embed plots, for example:
-
-```{r pressure, echo = FALSE}
-plot(pressure)
+```{r}
+glimpse(ambient_data)
 ```
 
-In that case, don't forget to commit and push the resulting figure files, so they display on GitHub and CRAN.
+

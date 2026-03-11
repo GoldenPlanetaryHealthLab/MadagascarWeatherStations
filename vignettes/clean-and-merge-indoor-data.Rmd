@@ -42,7 +42,8 @@ library(here)
 
 Reading in the data from the targets pipeline:
 ```{r}
-raw_data_files <- tar_read(raw_data_files, store = here("_targets"))
+raw_data_files <- tar_read(raw_data_files, store = here("_targets")) %>%
+  str_subset("Logger")
 
 raw_data_files
 ```
