@@ -20,18 +20,14 @@ Imports:
     purrr,
     readr,
     readxl,
-    stats,
     stringr,
     targets,
     tidyr,
     xfun
 Suggests: 
     ambientweatheR,
-    ggplot2,
     knitr,
-    plotly,
     rmarkdown,
-    skimr,
     testthat
 VignetteBuilder: 
     knitr
